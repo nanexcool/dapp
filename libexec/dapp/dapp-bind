@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-var DAPP_OUT = process.env.DAPP_OUT
-var DAPP_SRC = process.env.DAPP_SRC
+var DAPP_OUT   = process.env.DAPP_OUT
+var DAPP_SRC   = process.env.DAPP_SRC
+var DAPP_BUILD = process.env.DAPP_BUILD || 'build'
 
 var basename = x => x.replace(/\..*?$/, "")
 var cat      = x => require("fs").readFileSync(x, { encoding: "utf-8" })
@@ -8,7 +9,7 @@ var format   = x => JSON.stringify(x, null, 2)
 var lines    = x => x ? x.split("\n") : []
 var ls       = x => require("fs").readdirSync(x)
 var merge    = (...xs) => Object.assign({}, ...xs)
-var out      = (x, d) => require("fs").writeFileSync(x, d, { flag : 'w' })
+var out      = (x, d) => require("fs").writeFileSync(x, d, { flags: 'w' })
 var uniq     = xs => [...new Set(xs)]
 
 try {
@@ -20,14 +21,13 @@ try {
   process.exit(1)
 }
 
-var headers = format({
-  contracts: merge(...uniq(ls(DAPP_OUT).map(basename)).map(name => ({
+var headers = format(
+  merge(...uniq(ls(DAPP_OUT).map(basename)).map(name => ({
     [name]: {
       interface        : JSON.parse(cat(`${DAPP_OUT}/${name}.abi`)),
       bytecode         : cat(`${DAPP_OUT}/${name}.bin`),
     }
-  }))),
-})
+  }))))
 
 var NAME = 'test';
 
@@ -40,9 +40,7 @@ var environments = {
   }
 }
 
-var envs = format({
-  environments
-})
+var envs = format(environments)
 
 var bind = `'use strict';
 
@@ -129,7 +127,6 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 `
 
-out(`${DAPP_OUT}/dapp.js`, bind);
+out(`${DAPP_BUILD}/dapp.js`, bind);
 
-console.log(envs);
-console.log(headers);
+console.log(`Wrote bindings to ${DAPP_BUILD}/dapp.js`);
