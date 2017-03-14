@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+
+var PROGRAM_NAME = process.argv[1].replace(/.*\//, "")
+var PROGRAM_ARGS = process.argv.slice(2)
+
+var [chain, type, address] = PROGRAM_ARGS
+
+var format   = x => JSON.stringify(x, null, 2)
+
+var out = format({
+  [chain]: {
+    [type]: {
+      type,
+      value: address
+    }
+  }
+})
+
+console.log(out)
