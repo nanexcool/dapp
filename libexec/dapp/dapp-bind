@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+var DAPP_OUT = process.env.DAPP_OUT
+var DAPP_SRC = process.env.DAPP_SRC
+
+var basename = x => x.replace(/\..*?$/, "")
+var cat      = x => require("fs").readFileSync(x, { encoding: "utf-8" })
+var format   = x => JSON.stringify(x, null, 2)
+var lines    = x => x ? x.split("\n") : []
+var ls       = x => require("fs").readdirSync(x)
+var merge    = (...xs) => Object.assign({}, ...xs)
+var out      = (x, d) => require("fs").writeFileSync(x, d, { flag : 'w' })
+var uniq     = xs => [...new Set(xs)]
+
+try {
+  if (!require("fs").lstatSync(DAPP_OUT).isDirectory()) {
+    throw new Error
+  }
+} catch (error) {
+  console.error(`error: missing \`${DAPP_OUT}' directory`)
+  process.exit(1)
+}
+
+var headers = format({
+  contracts: merge(...uniq(ls(DAPP_OUT).map(basename)).map(name => ({
+    [name]: {
+      interface        : JSON.parse(cat(`${DAPP_OUT}/${name}.abi`)),
+      bytecode         : cat(`${DAPP_OUT}/${name}.bin`),
+    }
+  }))),
+})
+
+var NAME = 'test';
+
+var environments = {
+  kovan: {
+    test: {
+      type: 'something',
+      value: '0x012345'
+    } 
+  }
+}
+
+var envs = format({
+  environments
+})
+
+var bind = `'use strict';
+
+// For geth
+if (typeof dapp === 'undefined') {
+  var dapp = {};
+}
+
+if (typeof web3 === 'undefined' && typeof Web3 === 'undefined') {
+  var Web3 = require('web3');
+}
+
+dapp['${NAME}'] = (function builder () {
+  var environments = ${envs};
+
+  function ContractWrapper (headers, _web3) {
+    if (!_web3) {
+      throw new Error('Must supply a Web3 connection!');
+    }
+
+    this.headers = headers;
+    this._class = _web3.eth.contract(headers.interface);
+  }
+
+  ContractWrapper.prototype.deploy = function () {
+    var args = new Array(arguments);
+    args[args.length - 1].data = this.headers.bytecode;
+    return this._class.new.apply(this._class, args);
+  };
+
+  var passthroughs = ['at', 'new'];
+  for (var i = 0; i < passthroughs.length; i += 1) {
+    ContractWrapper.prototype[passthroughs[i]] = (function (passthrough) {
+      return function () {
+        return this._class[passthrough].apply(this._class, arguments);
+      };
+    })(passthroughs[i]);
+  }
+
+  function constructor (_web3, env) {
+    if (!env) {
+      env = ${envs};
+    }
+    if(typeof env === "object" && !("objects" in env)) {
+      env = {objects: env};
+    }
+    while (typeof env !== 'object') {
+      if (!(env in environments)) {
+        throw new Error('Cannot resolve environment name: ' + env);
+      }
+      env = {objects: environments[env]};
+    }
+
+    if (typeof _web3 === 'undefined') {
+      if (!env.rpcURL) {
+        throw new Error('Need either a Web3 instance or an RPC URL!');
+      }
+      _web3 = new Web3(new Web3.providers.HttpProvider(env.rpcURL));
+    }
+
+    this.headers = ${headers};
+
+    this.classes = {};
+    for (var key in this.headers) {
+      this.classes[key] = new ContractWrapper(this.headers[key], _web3);
+    }
+
+    this.objects = {};
+    for (var i in env.objects) {
+      var obj = env.objects[i];
+      if(!(obj['type'].split('[')[0] in this.classes)) continue;
+      this.objects[i] = this.classes[obj['type'].split('[')[0]].at(obj.value);
+    }
+  }
+
+  return {
+    class: constructor,
+    environments: environments
+  };
+})();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = dapp['${NAME}'];
+}
+`
+
+out(`${DAPP_OUT}/dapp.js`, bind);
+
+console.log(envs);
+console.log(headers);
