@@ -1,19 +1,37 @@
 #!/usr/bin/env node
 
+var DAPP_BUILD = process.env.DAPP_BUILD || 'build'
+
 var PROGRAM_NAME = process.argv[1].replace(/.*\//, "")
 var PROGRAM_ARGS = process.argv.slice(2)
 
-var [chain, type, address] = PROGRAM_ARGS
+var [chain, type, address, name] = PROGRAM_ARGS
 
+if (typeof name === 'undefined') name = type
+
+var cat      = x => require("fs").readFileSync(x, { encoding: "utf-8" })
 var format   = x => JSON.stringify(x, null, 2)
+var out      = (x, d) => require("fs").writeFileSync(x, d, { flags: 'w' })
 
-var out = format({
-  [chain]: {
-    [type]: {
+var file
+try {
+  file = JSON.parse(cat('addresses.json'))
+} catch(error) {
+  file = {}
+}
+
+if (file[chain]) {
+  file[chain][name] = {
+    type,
+    value: address
+  }
+} else {
+  file[chain] = {
+    [name]: {
       type,
       value: address
     }
   }
-})
+}
 
-console.log(out)
+out('addresses.json', format(file))

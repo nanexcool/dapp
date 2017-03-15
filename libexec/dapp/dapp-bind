@@ -9,7 +9,8 @@ var format   = x => JSON.stringify(x, null, 2)
 var lines    = x => x ? x.split("\n") : []
 var ls       = x => require("fs").readdirSync(x)
 var merge    = (...xs) => Object.assign({}, ...xs)
-var out      = (x, d) => require("fs").writeFileSync(x, d, { flags: 'w' })
+var package  = require("path").basename(process.cwd())
+var out      = (x, d) => require("fs").writeFileSync(x, d)
 var uniq     = xs => [...new Set(xs)]
 
 try {
@@ -21,6 +22,25 @@ try {
   process.exit(1)
 }
 
+if (!require("fs").existsSync(`${DAPP_BUILD}`)){
+    require("fs").mkdirSync(`${DAPP_BUILD}`);
+}
+
+var env = envs = format({
+  objects: {},
+  type: 'internal'
+})
+
+var envs
+
+try {
+  envs = cat('addresses.json')
+} catch (error) {
+  envs = format({
+    internal: {},
+  })
+}
+
 var headers = format(
   merge(...uniq(ls(DAPP_OUT).map(basename)).map(name => ({
     [name]: {
@@ -29,20 +49,7 @@ var headers = format(
     }
   }))))
 
-var NAME = 'test';
-
-var environments = {
-  kovan: {
-    test: {
-      type: 'something',
-      value: '0x012345'
-    } 
-  }
-}
-
-var envs = format(environments)
-
-var bind = `'use strict';
+var bind = `/* eslint-disable */
 
 // For geth
 if (typeof dapp === 'undefined') {
@@ -53,7 +60,7 @@ if (typeof web3 === 'undefined' && typeof Web3 === 'undefined') {
   var Web3 = require('web3');
 }
 
-dapp['${NAME}'] = (function builder () {
+dapp['${package}'] = (function builder () {
   var environments = ${envs};
 
   function ContractWrapper (headers, _web3) {
@@ -82,7 +89,7 @@ dapp['${NAME}'] = (function builder () {
 
   function constructor (_web3, env) {
     if (!env) {
-      env = ${envs};
+      env = ${env};
     }
     if(typeof env === "object" && !("objects" in env)) {
       env = {objects: env};
@@ -123,7 +130,7 @@ dapp['${NAME}'] = (function builder () {
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = dapp['${NAME}'];
+  module.exports = dapp['${package}'];
 }
 `
 

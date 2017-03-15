@@ -2,6 +2,16 @@
 set -e
 bin=$DAPP_OUT/${1?missing contract name}.bin
 type=$(seth --abi-constructor <"$DAPP_OUT/$1.abi")
-ADDRESS=`(set -x; seth send --create "$bin" "${type/constructor/$1}" "${@:2}")`
+args=()
+while (( "$#" )); do
+if [[  $1 == "--name" ]]; then 
+  shift
+  name=$1
+else
+  args+=("$1")
+fi
+shift
+done
+ADDRESS=$(set -x; seth send --create "$bin" "${type/constructor/${args[0]}}" "${args[@]:1}")
 echo $ADDRESS
-dapp objects `seth chain` $1 $ADDRESS
+dapp objects `seth chain` ${args[0]} $ADDRESS $name
