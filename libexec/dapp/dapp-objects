@@ -35,3 +35,5 @@ if (file[chain]) {
 }
 
 out('addresses.json', format(file))
+
+console.log('Wrote objects to addresses.json')

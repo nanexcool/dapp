@@ -23,7 +23,7 @@ try {
 }
 
 if (!require("fs").existsSync(`${DAPP_BUILD}`)){
-    require("fs").mkdirSync(`${DAPP_BUILD}`);
+    require("fs").mkdirSync(`${DAPP_BUILD}`)
 }
 
 var env = envs = format({
@@ -134,6 +134,6 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 `
 
-out(`${DAPP_BUILD}/dapp.js`, bind);
+out(`${DAPP_BUILD}/dapp.js`, bind)
 
-console.log(`Wrote bindings to ${DAPP_BUILD}/dapp.js`);
+console.log(`Wrote bindings to ${DAPP_BUILD}/dapp.js`)
